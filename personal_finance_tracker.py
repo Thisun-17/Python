@@ -2,7 +2,10 @@ import json
 import datetime
 
 
-# Validate the provided date against the current date and format constraints.
+
+# Global dictionary to store transactions
+transactions = {}
+
 def validate_date(date_text):
     try:
         # Attempt to parse the input date and compare it to today's date.
@@ -16,32 +19,42 @@ def validate_date(date_text):
         # Handle cases where the date format is incorrect.
         return False, "Invalid date or format. Please enter the date in (YYYY-MM-DD) format."
 
-
-# Load transactions from a JSON file, handling errors for file not found or JSON decode errors.
 def load_transactions():
+    #Load transaction data from a JSON file.
     global transactions
-    
     try:
         with open('transactions.json', 'r') as file:
             transactions = json.load(file)
     except FileNotFoundError:
-        # File doesn't exist; start with an empty list and notify the user.
-        print("Transactions file not found. A new file will be created.")
-        transactions = []
-    except json.JSONDecodeError:
-        # JSON file is corrupt; start with an empty list and notify the user.
-        print("Error reading transactions file. Starting with an empty list.")
-        transactions = []
+        transactions = {}
 
-
-# Save the current state of transactions to a JSON file.
 def save_transactions():
+    #Save the current transactions to a JSON file.
     with open('transactions.json', 'w') as file:
-        json.dump(transactions, file)
+        json.dump(transactions, file, indent=4)
 
-
-# Add a new transaction after validating the user input for amount, category, type, and date.
 def add_transaction():
+    #Add a new transaction after collecting input from the user.
+    while True:
+        transaction_type = input("Enter the transaction type (Income/Expense): ").lower().strip()
+        if not transaction_type:
+            print("Transaction type cannot be empty.")
+            continue
+        if transaction_type not in ['income', 'expense']:
+            print("Invalid transaction type. Please enter 'Income' or 'Expense'.")
+            continue
+        break
+
+    while True:
+        category = input("Enter the transaction category: ").lower().strip()
+        if not category:
+            print("Category cannot be empty.")
+            continue
+        if not category.isalpha():
+            print("Category name must consist of alphabetic characters only.")
+            continue
+        break
+
     while True:
         input_str = input("Enter the transaction amount: ").strip()
         if not input_str:
@@ -55,202 +68,368 @@ def add_transaction():
             break
         except ValueError:
             print("Invalid amount. Please enter a numerical value.")
-            
-    while True:
-        category = input("Enter the transaction category: ").strip()
-        if not category:
-            print("Category cannot be empty.")
-            continue
-        if category.isalpha():
-            break
-        else:
-            print("Category name must consist of alphabetic characters only.")
-
-    while True:
-        transaction_type = input("Enter the transaction type (Income/Expense): ").lower().strip()
-        if not transaction_type:
-            print("Transaction type cannot be empty.")
-            continue
-        if transaction_type in ['income', 'expense']:
-            break
-        else:
-            print("Invalid transaction type. Please enter 'Income' or 'Expense'.")
 
     while True:
         date = input("Please enter the transaction date in the format (YYYY-MM-DD): ").strip()
-        if not date :
+        if not date:
             print("Date cannot be empty.")
+            continue
         is_valid, message = validate_date(date)
         if not is_valid:
             print(message)  # Print the error message returned from validate_date
             continue
         break  # If is_valid is True, break out of the loop
 
-    # Construct and append the new transaction.
-    Transaction = [amount, category, transaction_type, date]
-    transactions.append(Transaction)
+    # Initialize the transaction_type key if it doesn't exist
+    if transaction_type not in transactions:
+        transactions[transaction_type] = {}
+
+    transaction = {"amount": amount, "date": date}
+
+    if category in transactions[transaction_type]:
+        transactions[transaction_type][category].append(transaction)
+    else:
+        transactions[transaction_type][category] = [transaction]
+
     save_transactions()
     print("Transaction added successfully.")
 
-# Display all transactions to the user.
-def view_transactions():
-    if not transactions :
-        print("No transactions available to view.")
-    for index, transaction in enumerate(transactions):
-        print(f"{index+1}: Amount: {transaction[0]}, Category: {transaction[1]}, Type: {transaction[2]}, Date: {transaction[3]}")
 
-# Update an existing transaction selected by the user.
+def view_transactions():
+    #Display all stored transactions.
+    if not transactions:
+        print("No transactions available to view.")
+        return
+    for transaction_type, categories in transactions.items():
+        print(f"Transaction type: {transaction_type.capitalize()}")
+        if isinstance(categories, dict):  # Check if categories is a dictionary
+            for category, transaction_list in categories.items():
+                print(f"\tCategory: {category}")
+                for transaction in transaction_list:
+                    print(f"\t\tAmount: {transaction['amount']}, Date: {transaction['date']}")
+        elif isinstance(categories, list):  # Check if categories is a list
+            for transaction in categories:
+                print(f"\tAmount: {transaction['amount']}, Date: {transaction['date']}")
+def delete_transaction():
+    #Allow the user to delete a transaction.
+    if not transactions:
+        print("No transactions available to delete.")
+        return
+    
+    view_transactions()
+    
+    while True:
+        transaction_type = input("Enter the transaction type of the transaction you want to delete: ").lower().strip()
+        
+        if not transaction_type:
+            print("Transaction type cannot be empty.")
+            continue
+        
+        if transaction_type not in transactions:
+            print("Transaction type does not exist.")
+            continue
+        
+        if not transaction_type.isalpha():
+            print("Transaction type must consist of alphabetic characters only.")
+            continue
+        break
+    while True:
+    
+        category = input("Enter the category of the transaction you want to delete: ").lower().strip()
+        if not category:
+            print("Category cannot be empty.")
+            continue 
+        if category not in transactions[transaction_type]:
+            print("Category does not exist.")
+            continue 
+        if not category.isalpha():
+            print("Invalid category. Please use only letters.")
+            continue
+        break 
+
+        # Print the transactions in the selected category for debugging
+        
+
+    list_transactions_in_category(transaction_type, category)
+    
+
+    while True:
+        
+        try:
+            transaction_index = int(input("Enter the index of the transaction you want to delete: "))
+            if transaction_index < 0 or transaction_index >= len(transactions[transaction_type][category]):
+                print("Invalid transaction index.")
+                continue 
+        except ValueError:
+            print("Invalid index. Please enter a numerical value.")
+            continue
+        break 
+
+    del transactions[transaction_type][category][transaction_index]
+    try:
+        if not transactions[transaction_type][category]:
+            del transactions[transaction_type][category]
+    
+                
+        if not transactions[transaction_type]:
+            del transactions[transaction_type]
+
+        
+    
+                
+        save_transactions()
+        print("Transaction deleted successfully.")
+        return  # Exit the function after successful deletion
+    except ValueError:
+        print("Please enter a valid index.")
+    
+
+def list_transactions_in_category(transaction_type, category):
+    print(f"Transactions in '{category}' under '{transaction_type.capitalize()}':")
+    for i, transaction in enumerate(transactions[transaction_type][category]):
+        print(f"{i}. Amount: {transaction['amount']}, Date: {transaction['date']}")
+
+
 def update_transaction():
+    #Allow the user to update details of a specific transaction.
     if not transactions:
         print("No transactions available to update.")
         return
     view_transactions()
+    while True:
+    
+        transaction_type = input("Enter the type of the transaction you want to update (Income/Expense): ").lower().strip()
+        if not transaction_type:
+            print("Transaction type cannot be empty.")
+            continue 
+        if transaction_type not in transactions:
+            print("Transaction type does not exist.")
+            continue 
+        if not transaction_type.isalpha():
+            print("Invalid transaction type. Please use only letters.")
+        break
 
     while True:
-        choice_input = input("Enter the number of the transaction you want to update (or '0' to cancel): ").strip()
-        if not choice_input:
-            print("Input cannot be empty.")
-            continue
-
-        try:
-            choice = int(choice_input) - 1  # Adjust for zero-based index of the list
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-            continue
-
-        if choice == -1:
-            print("Transaction update canceled.")
-            return
-        elif 0 <= choice < len(transactions):
-            break
-        else:
-            print(f"Invalid transaction number. Please enter a number between 1 and {len(transactions)}, or '0' to cancel.")
-
-    while True:
-        input_str = input("Enter the transaction amount: ").strip()
-        if not input_str:
-            print("Amount cannot be empty.")
-            continue
-        try:
-            amount = float(input_str)
-            if amount <= 0:
-                print("Amount must be greater than 0. Please try again.")
-                continue
-            break
-        except ValueError:
-            print("Invalid amount. Please enter a numerical value.")
-
-    while True:
-        category = input("Enter the transaction category: ").strip()
+    
+        category = input("Enter the category of the transaction you want to update: ").lower().strip()
         if not category:
             print("Category cannot be empty.")
-            continue
-        if category.isalpha():
-            break
-        else:
+            continue 
+        if category not in transactions[transaction_type]:
+            print("Category does not exist.")
+            continue 
+        if not category.isalpha():
             print("Invalid category. Please use only letters.")
-
+            continue
+        break 
+    
+    list_transactions_in_category(transaction_type, category)
     while True:
-        transaction_type = input("Enter the transaction type (Income/Expense): ").lower().strip()
+        
+        try:
+            transaction_index = int(input("Enter the index of the transaction you want to update: "))
+            if transaction_index < 0 or transaction_index >= len(transactions[transaction_type][category]):
+                print("Invalid transaction index.")
+                continue 
+        except ValueError:
+            print("Invalid index. Please enter a numerical value.")
+            continue
+        break 
+    
+    while True:
+        new_transaction_type = input("Enter the new transaction type (Income/Expense): ").lower().strip()
         if not transaction_type:
             print("Transaction type cannot be empty.")
             continue
-        if transaction_type in ['income', 'expense']:
+        if new_transaction_type in ['income', 'expense']:
             break
         else:
             print("Invalid transaction type. Please enter 'Income' or 'Expense'.")
 
+    while True:  
+        new_category = input("Enter the transaction new category: ").lower().strip()
+        if not new_category:
+            print("Category cannot be empty.")
+            continue
+        if not new_category.isalpha():
+            print("Category name must consist of alphabetic characters only.")
+            continue
+        break
+   
+
     while True:
+        
+    
+        input_str = input("Enter the transaction new amount: ").strip()
+        if not input_str:
+            print("Amount cannot be empty.")
+            continue 
+        try:
+            amount = float(input_str)
+            if amount <= 0:
+                print("Amount must be greater than 0. Please try again.")
+                continue 
+        except ValueError:
+            print("Invalid amount. Please enter a numerical value.")
+            continue
+        break
+    while True:
+        
+    
         date = input("Please enter the new transaction date (YYYY-MM-DD): ").strip()
-        if not date :
+        if not date:
             print("Date cannot be empty.")
+            continue 
         is_valid, message = validate_date(date)
         if not is_valid:
             print(message)  # Inform the user why the date is invalid
             continue
         break
 
-    # Update the selected transaction with new details.
-    transactions[choice] = [amount, category, transaction_type, date]
-    save_transactions()
+     # If all inputs are valid, perform the update
+    if new_transaction_type and new_category and amount and date:
+        # Move the transaction to the new category/type if necessary
+        transaction = transactions[transaction_type][category].pop(transaction_index)
+        if not transactions[transaction_type][category]:
+            del transactions[transaction_type][category]
+
+        # Add the transaction to the new type/category
+        if new_category not in transactions[new_transaction_type]:
+            transactions[new_transaction_type][new_category] = []
+        transactions[new_transaction_type][new_category].append({
+            "amount": amount,
+            "date": date
+        })
+
+    # If all validations pass, then update the transaction
+    
     print("Transaction updated successfully.")
 
-# Delete a specified transaction after confirmation from the user.
-def delete_transaction():
+
+def total_summary():
+    #Calculate and display total income, expenses, and net total.
     if not transactions:
-        print("No transactions available to delete.")
+        print("No transactions available.")
         return
 
-    view_transactions()
-    print("Please enter the number of the transaction you want to delete, (or enter '0' to cancel.) ")
+    total_income = 0
+    total_expense = 0
 
-    while True:
-        choice_input = input("Choice: ").strip()
-        if not choice_input:
-            print("Choice cannot be empty.")
-            continue
+    for transaction_type, categories in transactions.items():
+        for category, transactions_list in categories.items():
+            for transaction in transactions_list:
+                amount = transaction['amount']
+                if transaction_type == 'income':
+                    total_income += amount
+                elif transaction_type == 'expense':
+                    total_expense += amount
 
-        try:
-            choice = int(choice_input) - 1  # Adjust for zero-based index of the list
-        except ValueError:
-            print("Invalid input. Please enter a number.")
-            continue
-        
-        if choice == -1:
-            print("Transaction deletion canceled.")
-            return
-        elif 0 <= choice < len(transactions):
-            break
-        else:
-            print(f"Invalid transaction number. Please enter a number between 1 and {len(transactions)}, or '0' to cancel.")
+    print("Total Income:", total_income)
+    print("Total Expense:", total_expense)
+    print("Net Total:", total_income - total_expense)
+# The main transactions dictionary to store all data
+transactions = {}
+
+def read_bulk_transactions_from_file(filename):
+    global transactions  # Ensure we are modifying the global dictionary
+    added_transactions = {}
+
+    try:
+        with open(filename, 'r') as file:
+            for line in file:
+                parts = line.strip().split(',')
+                if len(parts) != 4:
+                    print("Skipping invalid entry:", line)
+                    continue
+
+                transaction_type, category, amount, date = parts
+                amount = float(amount)
+
+                if transaction_type not in added_transactions:
+                    added_transactions[transaction_type] = {}
+                if category not in added_transactions[transaction_type]:
+                    added_transactions[transaction_type][category] = []
+
+                transaction = {"amount": amount, "date": date}
+                added_transactions[transaction_type][category].append(transaction)
+
+                if transaction_type not in transactions:
+                    transactions[transaction_type] = {}
+                if category not in transactions[transaction_type]:
+                    transactions[transaction_type][category] = []
+                transactions[transaction_type][category].append(transaction)
+
+        print("Bulk transactions read and displayed below:")
+        display_transactions(added_transactions)
+        print("Now saving transactions...")
+        save_transactions()  # Ensure this is called to save changes
+    except FileNotFoundError:
+        print("File not found.")
+    except ValueError:
+        print("Error processing a line. Check file format.")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+# Ensure this is called in your application flow
+# read_bulk_transactions_from_file('path_to_your_file.txt')
+
+def display_transactions(transactions):
+    if not transactions:
+        print("No transactions available to display.")
+        return
     
-    # Proceed to delete the transaction
-    del transactions[choice]
-    save_transactions()
-    print("Transaction deleted successfully.")
+    for transaction_type, categories in transactions.items():
+        print(f"\nTransaction type: {transaction_type.capitalize()}")
+        for category, transaction_list in categories.items():
+            print(f"  Category: {category.capitalize()}")
+            for transaction in transaction_list:
+                print(f"    Amount: {transaction['amount']}, Date: {transaction['date']}")
 
-# Display a summary of income, expense, and the balance.
-def display_summary():
-    total_income = sum(transaction[0] for transaction in transactions if transaction[2] == "income")
-    total_expense = sum(transaction[0] for transaction in transactions if transaction[2] == "expense")
+# Simulated function call (assuming `file_like` is your file-like object with transaction data)
+# read_bulk_transactions_from_file(file_like)
 
-    balance = total_income - total_expense
-    print(f"Total Income: {total_income}")
-    print(f"Total Expense: {total_expense}")
-    print(f"Balance: {balance}")
 
-# Main menu loop, providing options to the user for managing their transactions.
+
+
+
 def main_menu():
-    load_transactions()
-
+    #Handle the main menu interactions for the finance tracker.
     while True:
         print("\nPersonal Finance Tracker")
         print("1. Add Transaction")
         print("2. View Transactions")
         print("3. Update Transaction")
         print("4. Delete Transaction")
-        print("5. Display Summary")
-        print("6. Exit")
+        print("5. Total Summary")
+        print("6. Read Bulk Transactions From File")
+        print("0. Exit")
 
         choice = input("Enter your choice: ").strip()
         if not choice:
             print("Choice cannot be empty")
 
-        if choice == '1':
+        if choice == "1":
             add_transaction()
-        elif choice == '2':
+        elif choice == "2":
             view_transactions()
-        elif choice == '3':
-             update_transaction()
-        elif choice == '4':
-             delete_transaction()
-        elif choice == '5':
-             display_summary()
-        elif choice == '6':
-            print("Exiting program.")
+        elif choice == "3":
+            update_transaction()
+        elif choice == "4":
+            delete_transaction()
+        elif choice== "5":
+            total_summary()
+        elif choice == "6":
+            filename = input("Enter filename: ")
+            read_bulk_transactions_from_file(filename)
+        elif choice == "0":
             break
         else:
-            print("Invalid choice. Please try again.")
+            print("Invalid choice, please try again.")
+
+
+
+        
 
 if __name__ == "__main__":
+    load_transactions()
     main_menu()
